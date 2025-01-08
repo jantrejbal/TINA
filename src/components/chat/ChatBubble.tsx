@@ -1,3 +1,4 @@
+// ChatBubble.tsx
 import React, { useState, useRef, useEffect } from 'react';
 import { useLiveAPIContext } from '../../contexts/LiveAPIContext';
 import { ServerContent, isModelTurn, LiveConfig } from '../../multimodal-live-types';
@@ -10,6 +11,7 @@ export const ChatBubble = () => {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { connected, client } = useLiveAPIContext();
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -18,6 +20,25 @@ export const ChatBubble = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  useEffect(() => {
+    // Handle outside clicks
+    const handleClickOutside = (event: MouseEvent) => {
+      if (chatContainerRef.current && !chatContainerRef.current.contains(event.target as Node)) {
+        if (isExpanded) {
+          setIsExpanded(false);
+        }
+      }
+    };
+
+    if (isExpanded) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isExpanded]);
 
   const handleSend = () => {
     if (!inputText.trim()) return;
@@ -73,57 +94,65 @@ export const ChatBubble = () => {
   }, [client]);
 
   return (
-    <div className={`chat-container ${isExpanded ? 'expanded' : ''}`}>
-      {!isExpanded ? (
-        <button 
-          className="bubble-button"
-          onClick={toggleChat}
-          aria-label="Open chat"
-        >
-          <span className="material-symbols-outlined">chat</span>
-          {!connected && <div className="status-dot" />}
-        </button>
-      ) : (
-        <div className="chat-window">
-          <div className="chat-header">
-            <h3>Sales Arena Assistant</h3>
-            <button onClick={toggleChat} aria-label="Close chat">×</button>
-          </div>
-          
-          <div className="messages-container">
-            {messages.map((msg, idx) => (
-              <div 
-                key={idx} 
-                className={`message ${msg.isUser ? 'user' : 'ai'}`}
-              >
-                {msg.text}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
+    <>
+      <div 
+        ref={chatContainerRef}
+        className={`chat-container ${isExpanded ? 'expanded' : ''}`}
+      >
+        {!isExpanded ? (
+          <button 
+            className="chat-button"
+            onClick={toggleChat}
+            aria-label="Open chat"
+          >
+            <span className="chat-icon">💬</span>
+            {!connected && <div className="status-dot" />}
+          </button>
+        ) : (
+          <div className="chat-window">
+            <div className="chat-header">
+              <h3>Sales Arena Assistant</h3>
+              <button onClick={toggleChat} className="close-button" aria-label="Close chat">
+                ×
+              </button>
+            </div>
+            
+            <div className="messages-container">
+              {messages.map((msg, idx) => (
+                <div 
+                  key={idx} 
+                  className={`message ${msg.isUser ? 'user' : 'ai'}`}
+                >
+                  {msg.text}
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
 
-          <div className="input-container">
-            <input 
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Type your message..."
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleSend();
-                }
-              }}
-            />
-            <button 
-              onClick={handleSend}
-              disabled={!connected || !inputText.trim()}
-              className="send-button"
-            >
-              Send
-            </button>
+            <div className="input-container">
+              <input 
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Type your message..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSend();
+                  }
+                }}
+              />
+              <button 
+                onClick={handleSend}
+                disabled={!connected || !inputText.trim()}
+                className="send-button"
+              >
+                Send
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+      {isExpanded && <div className="chat-backdrop" onClick={() => setIsExpanded(false)} />}
+    </>
   );
 };
